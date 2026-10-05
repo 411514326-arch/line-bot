@@ -131,6 +131,15 @@ def _get_or_create_chat(client: Any, user_id: str, model_name: str) -> Any:
     )
     return client.chats.create(model=model_name, config=config)
 
+_global_client = None
+
+def get_client():
+    global _global_client
+    if _global_client is None:
+        from google import genai
+        _global_client = genai.Client(api_key=GEMINI_API_KEY)
+    return _global_client
+
 def ask_antigravity(user_id: str, prompt: str) -> str:
     """
     Sends message to Gemini Agent with automatic tool calling and model fallback.
@@ -138,10 +147,9 @@ def ask_antigravity(user_id: str, prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "⚠️ GEMINI_API_KEY is not configured in .env."
 
-    from google import genai
-    from google.genai.errors import ServerError
+    from google.genai.errors import ServerError, ClientError
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = get_client()
     candidate_models = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.7-flash"]
 
     for model_name in candidate_models:
@@ -158,12 +166,14 @@ def ask_antigravity(user_id: str, prompt: str) -> str:
                 return reply
             return "✅ 任務已執行完畢。"
 
-        except ServerError as e:
-            logger.warning(f"Model {model_name} server error (503/high load): {e}. Trying fallback model...")
-            # Reset chat to try with next model
+        except ClientError as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                logger.warning(f"Rate limit 429 on {model_name}: {e}")
+                return "⏳ 觸發 Google API 免費版頻率限制（每分鐘 5 次請求），請稍等約 30 秒後再發送！"
+            logger.error(f"ClientError with {model_name}: {e}")
             if user_id in _user_chats:
                 del _user_chats[user_id]
-            continue
+            return f"❌ 處理訊息時發生錯誤：\n{str(e)}"
 
         except Exception as e:
             logger.error(f"Error in ask_antigravity with {model_name}: {e}")
