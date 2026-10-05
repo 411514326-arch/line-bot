@@ -1,0 +1,31 @@
+# Environment variables & secrets (CRITICAL: NEVER COMMIT)
+.env
+.env.local
+.env.*.local
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs & temp
+*.log
+.system_generated/
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
