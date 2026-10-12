@@ -13,12 +13,13 @@ Connect your **LINE** app directly to AI on your local machine to chat and execu
   - `openai` — **開源模型**：Ollama（本地免費）、LM Studio、vLLM、llama.cpp、OpenRouter、Groq 等
 - 💬 **智慧對話**：多輪上下文記憶，對話紀錄持久化到磁碟（伺服器重啟不消失）
 - 📚 **本地知識庫**：內建常見問題答案（例如國立東華大學陳文盛教授資料），離線也能答
-- 🔍 **網頁搜尋**：`/search` 指令使用 DuckDuckGo，免 API 金鑰
+- 🔍 **網頁搜尋**：`/search` 指令使用多引擎容錯（DuckDuckGo → Bing → SearXNG），免 API 金鑰
 - 💻 **遠端指令執行**：`/cmd <command>` 即時執行並回傳輸出
 - 🤖 **自主工具呼叫**：自然語言即可建立桌面檔案、讀寫檔案、執行指令（Function Calling）
 - ⚡ **非同步 Webhook**：立即回應 HTTP 200，避免 LINE 逾時
 - 🛡️ **安全機制**：白名單控管、危險指令封鎖（rm -rf 等）、訊息速率限制
-- 🛠️ **實用指令**：`/status`、`/dir`、`/id`、`/model`、`/kb`、`/history`、`/clear`、`/help`
+- 🛠️ **實用指令**：`/status`、`/dir`、`/id`、`/model`、`/kb`、`/search`、`/history`、`/clear`、`/help`
+- 🖼️ **圖片分析**：傳送圖片給機器人，自動用 Gemini Vision 以繁體中文描述內容
 
 ---
 
@@ -136,6 +137,7 @@ ngrok http 5000
 | `/id` | `/id` | 顯示你的 LINE User ID |
 | `/clear` | `/clear` | 清空對話記憶 |
 | `/help` | `/help` | 指令說明 |
+| 🖼️ 圖片 | 傳送圖片 | 用 Gemini Vision 描述圖片內容（繁體中文） |
 
 ---
 

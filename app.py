@@ -39,6 +39,7 @@ from config import (
     LINE_CHANNEL_ACCESS_TOKEN,
     LLM_BACKEND,
     GEMINI_API_KEY,
+    GEMINI_MODELS,
     OPENAI_MODEL,
     PORT,
     RATE_LIMIT_REQUESTS,
@@ -251,10 +252,10 @@ def handle_image_message(event: MessageEvent):
             content = blob_api.get_message_content(message_id)  # 回傳 bytes
             img_b64 = base64.b64encode(content).decode("utf-8")
 
-        # 使用 Gemini 分析圖片
+        # 使用 Gemini 分析圖片（使用配置的第一個模型）
         gemini_client = genai.Client(api_key=GEMINI_API_KEY)
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODELS[0],
             contents=[
                 gtypes.Part.from_bytes(
                     data=base64.b64decode(img_b64),
