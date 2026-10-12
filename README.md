@@ -1,25 +1,35 @@
 # Antigravity LINE Bot 🤖⚡
 
-Connect your **LINE** app directly to **Antigravity AI** on your local machine to chat and execute terminal commands on the fly!
+Connect your **LINE** app directly to AI on your local machine to chat and execute terminal commands on the fly!
+
+**v2 升級：新增開源模型後端（Ollama / OpenRouter）、本地知識庫、網頁搜尋、對話紀錄持久化與速率限制。**
 
 ---
 
 ## ✨ Features
 
-- 💬 **Antigravity & Gemini Chatting**: Natural conversation with AI directly from your LINE messenger. Context history is remembered per user.
-- 💻 **Remote Command Execution**: Execute shell commands on your host system with `/cmd <command>` and receive stdout/stderr output in real-time.
-- ⚡ **Asynchronous Webhook Processing**: Immediate HTTP 200 acknowledgment to avoid LINE webhook timeouts, with reply token and push fallback.
-- 🛡️ **Security Whitelist**: Restrict command execution and access to your specific LINE User ID.
-- 🛠️ **Utility Commands**: Check host status (`/status`), list workspace files (`/dir`), view your LINE User ID (`/id`), reset chat memory (`/clear`), and more.
+- 🧠 **雙 AI 後端隨時切換**：
+  - `gemini` — Google Gemini（預設，保留原有工具呼叫能力）
+  - `openai` — **開源模型**：Ollama（本地免費）、LM Studio、vLLM、llama.cpp、OpenRouter、Groq 等
+- 💬 **智慧對話**：多輪上下文記憶，對話紀錄持久化到磁碟（伺服器重啟不消失）
+- 📚 **本地知識庫**：內建常見問題答案（例如國立東華大學陳文盛教授資料），離線也能答
+- 🔍 **網頁搜尋**：`/search` 指令使用 DuckDuckGo，免 API 金鑰
+- 💻 **遠端指令執行**：`/cmd <command>` 即時執行並回傳輸出
+- 🤖 **自主工具呼叫**：自然語言即可建立桌面檔案、讀寫檔案、執行指令（Function Calling）
+- ⚡ **非同步 Webhook**：立即回應 HTTP 200，避免 LINE 逾時
+- 🛡️ **安全機制**：白名單控管、危險指令封鎖（rm -rf 等）、訊息速率限制
+- 🛠️ **實用指令**：`/status`、`/dir`、`/id`、`/model`、`/kb`、`/history`、`/clear`、`/help`
 
 ---
 
 ## 📋 Prerequisites
 
-- **Python 3.10+** (Tested on Python 3.12)
-- A **LINE Developers Account** (free: [https://developers.line.biz/](https://developers.line.biz/))
-- A **Google Gemini API Key** (free tier: [https://aistudio.google.com/](https://aistudio.google.com/))
-- **ngrok** (or cloudflared) for exposing your local server to LINE Webhooks.
+- **Python 3.10+**（已測試 Python 3.12）
+- **LINE Developers Account**（免費：https://developers.line.biz/）
+- AI 後端擇一：
+  - **Google Gemini API Key**（免費額度：https://aistudio.google.com/）
+  - **開源模型**（推薦 Ollama：https://ollama.com/ ，安裝後 `ollama pull qwen2.5:7b`）
+- **ngrok** 或 **cloudflared**（將本機伺服器暴露給 LINE Webhook）
 
 ---
 
@@ -27,30 +37,53 @@ Connect your **LINE** app directly to **Antigravity AI** on your local machine t
 
 ### Step 1: Install Python Dependencies
 
-Open PowerShell in this directory (`c:\Users\LEE68\OneDrive\line bot`) and install:
-
-```powershell
+```
 pip install -r requirements.txt
 ```
 
 ### Step 2: Configure Environment Variables
 
-Open the `.env` file in this directory and fill in your credentials:
+複製 `.env.example` 為 `.env` 並填入憑證：
 
-```ini
-# LINE Bot Credentials (from LINE Developers Console)
+```
+# LINE Bot Credentials
 LINE_CHANNEL_SECRET=your_line_channel_secret_here
 LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
 
-# Google Gemini / Antigravity API Key
+# 預設後端：gemini 或 openai
+LLM_BACKEND=gemini
 GEMINI_API_KEY=your_gemini_api_key_here
 
-# Whitelist your LINE user ID to restrict commands (optional, recommended)
+# 開源模型後端（LLM_BACKEND=openai 時需設定）
+# Ollama 本地端範例：
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_API_KEY=
+OPENAI_MODEL=qwen2.5:7b
+
+# 安全白名單（強烈建議設定）
 ALLOWED_USER_IDS=
 
-# Local Server Port
 PORT=5000
 ```
+
+---
+
+## 🌐 使用開源模型（Ollama）
+
+1. 安裝 Ollama：https://ollama.com/
+2. 下載開源模型：
+   ```
+   ollama pull qwen2.5:7b
+   ```
+3. 設定 `.env`：
+   ```
+   LLM_BACKEND=openai
+   OPENAI_BASE_URL=http://localhost:11434/v1
+   OPENAI_MODEL=qwen2.5:7b
+   ```
+4. 在 LINE 對話中也可隨時用 `/model openai` 或 `/model gemini` 切換。
+
+其他支援的開源模型服務：LM Studio、vLLM、llama.cpp server、OpenRouter、Groq（皆為 OpenAI 相容 API）。
 
 ---
 
@@ -58,48 +91,32 @@ PORT=5000
 
 1. Go to [LINE Developers Console](https://developers.line.biz/) and log in.
 2. Create a **Provider** (or select an existing one).
-3. Create a **Messaging API** channel:
-   - Fill in Channel Name, Description, and Category.
-4. In the **Basic settings** tab:
-   - Copy the **Channel secret** and paste it into `LINE_CHANNEL_SECRET` in `.env`.
-5. In the **Messaging API** tab:
-   - Issue a **Channel access token (long-lived)** and paste it into `LINE_CHANNEL_ACCESS_TOKEN` in `.env`.
-   - Set **Webhook URL** to:
-     ```
-     https://<your-ngrok-domain>.ngrok-free.app/callback
-     ```
-   - Toggle **Use webhook** to **Enabled**.
-   - Under **LINE Official Account features**, click **Auto-reply messages** -> disable "Auto-reply" and enable "Webhooks".
-6. Scan the QR code in the Messaging API tab to add your bot as a friend on LINE.
-
----
-
-## 🌐 Exposing Localhost with ngrok
-
-Because LINE requires a public HTTPS URL for webhooks, run ngrok in a separate terminal:
-
-```powershell
-# Install ngrok if not already installed (winget install ngrok or download from ngrok.com)
-ngrok http 5000
-```
-
-Copy the forwarding HTTPS address (e.g. `https://xxxx-xx-xx.ngrok-free.app`) and append `/callback`, then paste it as the **Webhook URL** in the LINE Developers Console. Click **Verify** to test connection.
+3. Create a **Messaging API** channel.
+4. In **Basic settings**：複製 **Channel secret** 貼到 `.env`。
+5. In **Messaging API**：發行 **Channel access token (long-lived)** 貼到 `.env`；Webhook URL 設為 `https://<ngrok-domain>/callback`，開啟 **Use webhook**，並關閉自動回應。
+6. 掃描 QR code 將機器人加入好友。
 
 ---
 
 ## 🏃 Starting the Bot
 
-Start the server:
-
-```powershell
+```
 python app.py
 ```
 
 You should see:
+
 ```
 🚀 Starting Antigravity LINE Bot server on port 5000...
+🧠 AI backend: gemini
 🔗 Health check available at: http://localhost:5000/
 🔗 Webhook endpoint: http://localhost:5000/callback
+```
+
+Expose to internet（LINE 需要公開 HTTPS）：
+
+```
+ngrok http 5000
 ```
 
 ---
@@ -107,23 +124,49 @@ You should see:
 ## 💬 Usage & Command Reference
 
 | Action / Command | Example | Description |
-| :--- | :--- | :--- |
-| **Normal Chat** | `How do I write an async worker in Python?` | Chats with Antigravity AI. Session memory is preserved. |
-| `/cmd <command>` | `/cmd dir` or `/cmd git status` | Runs a shell command on your local PC and returns output. |
-| `/status` | `/status` | Displays OS info, Python version, workspace path, and disk space. |
-| `/dir` | `/dir` | Lists files in the current workspace directory. |
-| `/id` | `/id` | Shows your unique LINE User ID (to put into `ALLOWED_USER_IDS`). |
-| `/clear` | `/clear` | Clears conversation context and resets chat memory. |
-| `/help` | `/help` | Displays the help menu and commands list. |
+| --- | --- | --- |
+| **Normal Chat** | `陳文盛是誰？` | 優先查本地知識庫，否則交給 AI 後端 |
+| `/cmd <command>` | `/cmd dir` | 執行終端指令（需白名單） |
+| `/model [名稱]` | `/model openai` | 查詢或切換 AI 後端 |
+| `/kb <關鍵字>` | `/kb 陳文盛` | 搜尋本地知識庫（離線可用） |
+| `/search <關鍵字>` | `/search 國立東華大學 陳文盛` | 搜尋網頁（DuckDuckGo） |
+| `/status` | `/status` | 系統與機器人狀態 |
+| `/dir` | `/dir` | 列出工作目錄檔案 |
+| `/history` | `/history` | 目前對話記錄長度 |
+| `/id` | `/id` | 顯示你的 LINE User ID |
+| `/clear` | `/clear` | 清空對話記憶 |
+| `/help` | `/help` | 指令說明 |
 
 ---
 
 ## 🛡️ Security Best Practice
 
-By default, anyone who adds your bot could theoretically run `/cmd` commands. To prevent unauthorized command execution:
-1. Message `/id` to your bot in LINE to get your personal User ID (starts with `U...`).
-2. Add your ID to `.env`:
-   ```ini
-   ALLOWED_USER_IDS=U1234567890abcdef...
-   ```
-3. Restart `python app.py`. Now only your account can run shell commands!
+1. Message `/id` to your bot to get your User ID（`U...` 開頭）。
+2. 將 ID 加入 `.env` 的 `ALLOWED_USER_IDS`。
+3. 重啟 `python app.py`，之後只有你的帳號能執行指令。
+4. `/cmd` 內建危險指令封鎖（`rm -rf`、`shutdown` 等），雙重保護。
+
+---
+
+## 📂 Project Structure
+
+```
+line bot/
+├── app.py               # Flask Webhook 伺服器、速率限制、事件處理
+├── agent.py             # AI Agent：系統提示詞、工具定義、對話入口
+├── llm.py               # 統一 LLM 後端（Gemini + OpenAI 相容開源模型）
+├── command_handler.py   # 指令解析與系統工具
+├── knowledge_base.py    # 本地知識庫（離線可查）
+├── websearch.py         # DuckDuckGo 網頁搜尋
+├── config.py            # 環境變數與設定
+├── chat_history/        # 對話紀錄持久化（自動建立）
+├── index.html           # 專案執行紀錄網頁
+└── requirements.txt
+```
+
+---
+
+## 🔗 Links
+
+- GitHub: https://github.com/411514326-arch/line-bot
+- 執行紀錄網頁: `index.html`

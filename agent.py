@@ -1,14 +1,24 @@
-import os
-import sys
+"""
+agent.py — AI Agent：系統提示詞、工具定義與對話入口
+
+對話由 llm.py 的統一後端處理（gemini 或 openai 開源模型）。
+"""
+
 import logging
+import os
 import subprocess
-from typing import Dict, Any, Optional
-from config import GEMINI_API_KEY, is_user_allowed
+from typing import Dict
+
+from config import GEMINI_API_KEY, OPENAI_BASE_URL, is_user_allowed
+from llm import (
+    get_backend,
+    get_backend_name,
+    list_backends,
+    reset_user,
+    set_user_backend,
+)
 
 logger = logging.getLogger(__name__)
-
-# Maintain in-memory chat sessions per LINE user_id
-_user_chats: Dict[str, Any] = {}
 
 SYSTEM_INSTRUCTION = (
     "You are Antigravity, an intelligent AI assistant and autonomous agent connected directly to "
@@ -49,7 +59,7 @@ def write_file(filepath: str, content: str) -> str:
     Writes or overwrites a file with the given content at any specified file path.
     Args:
         filepath: Full or relative path to the file.
-        content: The text content to write.
+        content: The text content to write into the file.
     """
     try:
         # Expand user path like ~
@@ -106,80 +116,119 @@ def execute_terminal_command(command: str) -> str:
     except Exception as e:
         return f"Execution error: {str(e)}"
 
-ALL_TOOLS = [create_desktop_file, write_file, read_file, execute_terminal_command]
+# ----------------- Tool specs for OpenAI function calling -----------------
+
+TOOL_SPECS = [
+    {
+        "name": "create_desktop_file",
+        "description": "在使用者 Windows 桌面建立文字或程式檔案",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "filename": {"type": "string", "description": "檔案名稱，例如 note.txt"},
+                "content": {"type": "string", "description": "要寫入的內容"},
+            },
+            "required": ["filename", "content"],
+        },
+        "handler": create_desktop_file,
+    },
+    {
+        "name": "write_file",
+        "description": "在指定路徑寫入或覆寫檔案",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "filepath": {"type": "string", "description": "完整或相對路徑"},
+                "content": {"type": "string", "description": "要寫入的內容"},
+            },
+            "required": ["filepath", "content"],
+        },
+        "handler": write_file,
+    },
+    {
+        "name": "read_file",
+        "description": "讀取電腦上指定檔案的內容",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "filepath": {"type": "string", "description": "要讀取的檔案路徑"},
+            },
+            "required": ["filepath"],
+        },
+        "handler": read_file,
+    },
+    {
+        "name": "execute_terminal_command",
+        "description": "在電腦執行終端機指令並回傳輸出結果",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "要執行的指令字串"},
+            },
+            "required": ["command"],
+        },
+        "handler": execute_terminal_command,
+    },
+]
 
 # ----------------- Chat Management -----------------
 
 def clear_session(user_id: str) -> str:
     """Clear conversation history for a specific user."""
-    if user_id in _user_chats:
-        del _user_chats[user_id]
+    if reset_user(user_id):
         return "🧹 對話記憶已清空，隨時可以開始新的話題！"
     return "ℹ️ 目前沒有已存在的對話紀錄。"
 
-def _get_or_create_chat(client: Any, user_id: str, model_name: str) -> Any:
-    """Retrieve existing chat or initialize a new chat session with tools."""
-    from google.genai import types
 
-    # Only provide tools if user is authorized in whitelist
-    user_tools = ALL_TOOLS if is_user_allowed(user_id) else []
+def get_model_info(user_id: str) -> str:
+    """回傳目前使用中的 AI 後端與可用後端清單。"""
+    current = get_backend_name(user_id)
+    lines = [f"🤖 目前 AI 後端：{current}", ""]
+    for b in list_backends():
+        status = "✅ 已設定" if b["configured"] else "⚠️ 尚未設定"
+        detail = b.get("model") or ", ".join(b.get("models", []))
+        lines.append(f"• {b['name']}：{detail}（{status}）")
+    lines.append("")
+    lines.append("切換方式：/model gemini 或 /model openai")
+    return "\n".join(lines)
 
-    config = types.GenerateContentConfig(
-        tools=user_tools,
-        system_instruction=SYSTEM_INSTRUCTION,
-        temperature=0.7,
-    )
-    return client.chats.create(model=model_name, config=config)
 
-_global_client = None
+def switch_model(user_id: str, name: str) -> str:
+    """切換使用者的 AI 後端。"""
+    if set_user_backend(user_id, name.lower()):
+        return f"✅ 已將 AI 後端切換為：{name.lower()}"
+    return "⚠️ 未知的模型後端。目前支援：gemini、openai"
 
-def get_client():
-    global _global_client
-    if _global_client is None:
-        from google import genai
-        _global_client = genai.Client(api_key=GEMINI_API_KEY)
-    return _global_client
 
 def ask_antigravity(user_id: str, prompt: str) -> str:
     """
-    Sends message to Gemini Agent with automatic tool calling and model fallback.
+    Sends message to the configured LLM backend with automatic tool calling
+    and model fallback.
     """
-    if not GEMINI_API_KEY:
+    backend_name = get_backend_name(user_id)
+
+    if backend_name == "gemini" and not GEMINI_API_KEY:
         return "⚠️ GEMINI_API_KEY is not configured in .env."
+    if backend_name == "openai" and not OPENAI_BASE_URL:
+        return (
+            "⚠️ 尚未設定開源模型後端。請在 .env 設定 LLM_BACKEND=openai 與 "
+            "OPENAI_BASE_URL，例如使用 Ollama：http://localhost:11434/v1"
+        )
 
-    from google.genai.errors import ServerError, ClientError
+    backend = get_backend(user_id)
 
-    client = get_client()
-    candidate_models = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.7-flash"]
+    # Only provide tools if user is authorized in whitelist
+    tools = TOOL_SPECS if is_user_allowed(user_id) else []
+    tool_map = {t["name"]: t["handler"] for t in tools}
 
-    for model_name in candidate_models:
-        try:
-            # Check or create chat session
-            chat = _user_chats.get(user_id)
-            if chat is None:
-                chat = _get_or_create_chat(client, user_id, model_name)
-                _user_chats[user_id] = chat
+    try:
+        return backend.chat(user_id, prompt, SYSTEM_INSTRUCTION, tools, tool_map)
 
-            response = chat.send_message(prompt)
-            reply = (response.text or "").strip()
-            if reply:
-                return reply
-            return "✅ 任務已執行完畢。"
-
-        except ClientError as e:
-            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                logger.warning(f"Rate limit 429 on {model_name}: {e}")
-                return "⏳ 觸發 Google API 免費版頻率限制（每分鐘 5 次請求），請稍等約 30 秒後再發送！"
-            logger.error(f"ClientError with {model_name}: {e}")
-            if user_id in _user_chats:
-                del _user_chats[user_id]
-            return f"❌ 處理訊息時發生錯誤：\n{str(e)}"
-
-        except Exception as e:
-            logger.error(f"Error in ask_antigravity with {model_name}: {e}")
-            # Reset chat session on error
-            if user_id in _user_chats:
-                del _user_chats[user_id]
-            return f"❌ 處理訊息時發生錯誤：\n{str(e)}"
-
-    return "⚠️ 伺服器目前流量較高，請稍候片刻再試一次。"
+    except Exception as e:
+        logger.exception("Error in ask_antigravity:")
+        err_text = str(e)
+        if "429" in err_text or "RESOURCE_EXHAUSTED" in err_text:
+            return "⏳ 觸發 API 免費版頻率限制（每分鐘 5 次請求），請稍等約 30 秒後再發送！"
+        # 對話狀態可能已損壞，重置後讓使用者重試
+        reset_user(user_id)
+        return f"❌ 處理訊息時發生錯誤：\n{err_text}"
