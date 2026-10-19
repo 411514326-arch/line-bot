@@ -1,0 +1,36 @@
+# Git
+.git/
+.gitignore
+
+# Python 快取與虛擬環境
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+
+# 機密金鑰與本機設定 (極重要：切勿打包進 Docker 映象檔)
+.env
+.env.local
+.env.*.local
+
+# 使用者對話紀錄與暫存記錄
+chat_history/
+chat_history_test/
+*.log
+.system_generated/
+
+# 測試腳本與文件
+test_*.py
+*.pdf
+
+# 編輯器與作業系統設定
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

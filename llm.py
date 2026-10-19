@@ -31,48 +31,23 @@ MAX_TOOL_ROUNDS = 6      # 工具呼叫最大輪數，避免無限迴圈
 MAX_HISTORY_TURNS = 40   # 每個使用者保留的最大對話輪數
 
 
-# ================= 對話紀錄管理（記憶體 + 磁碟持久化） =================
+# ================= 對話紀錄管理（記憶體 + 持久化抽象儲存） =================
 
+from core.storage import get_storage_engine
+
+_storage = get_storage_engine()
 _sessions: Dict[str, List[Dict[str, str]]] = {}
 _sessions_lock = threading.Lock()
 
 
-def _history_path(user_id: str) -> Optional[str]:
-    try:
-        os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
-        safe_name = "".join(c if c.isalnum() else "_" for c in user_id)
-        return os.path.join(CHAT_HISTORY_DIR, f"{safe_name}.json")
-    except Exception:
-        return None
-
-
 def load_history(user_id: str) -> List[Dict[str, str]]:
-    """從磁碟載入對話紀錄（伺服器重啟後仍保留）。"""
-    path = _history_path(user_id)
-    if path and os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, list):
-                return [
-                    m
-                    for m in data
-                    if isinstance(m, dict) and "role" in m and "content" in m
-                ]
-        except Exception as e:
-            logger.warning(f"無法讀取對話紀錄 {path}: {e}")
-    return []
+    """從持久化儲存載入對話紀錄（伺服器重啟後仍保留）。"""
+    return _storage.load(user_id)
 
 
 def save_history(user_id: str) -> None:
-    path = _history_path(user_id)
-    if not path:
-        return
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(get_history(user_id), f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.warning(f"無法儲存對話紀錄 {path}: {e}")
+    history = get_history(user_id)
+    _storage.save(user_id, history)
 
 
 def get_history(user_id: str) -> List[Dict[str, str]]:
@@ -97,14 +72,8 @@ def append_history(user_id: str, role: str, content: str) -> None:
 def clear_history(user_id: str) -> bool:
     with _sessions_lock:
         existed = _sessions.pop(user_id, None)
-    if existed is not None:
-        path = _history_path(user_id)
-        try:
-            if path and os.path.exists(path):
-                os.remove(path)
-        except Exception:
-            pass
-    return existed is not None
+    cleared_storage = _storage.clear(user_id)
+    return (existed is not None) or cleared_storage
 
 
 # ================= 後端實作 =================

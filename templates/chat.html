@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Antigravity 智慧助理 - 網頁版</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Marked.js (Markdown 渲染) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
+    }
+    
+    /* 捲動軸樣式 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.4);
+    }
+
+    /* Markdown 樣式修飾 */
+    .prose-content p {
+      margin-bottom: 0.5rem;
+      line-height: 1.6;
+    }
+    .prose-content p:last-child {
+      margin-bottom: 0;
+    }
+    .prose-content code {
+      background-color: rgba(15, 23, 42, 0.8);
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.25rem;
+      font-size: 0.875em;
+      color: #38bdf8;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .prose-content pre {
+      background-color: #030712;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      margin: 0.5rem 0;
+      overflow-x: auto;
+    }
+    .prose-content pre code {
+      background-color: transparent;
+      padding: 0;
+      color: #f8fafc;
+      border: none;
+    }
+    .prose-content ul {
+      list-style-type: disc;
+      margin-left: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-content ol {
+      list-style-type: decimal;
+      margin-left: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-content a {
+      color: #38bdf8;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col bg-slate-950 overflow-hidden select-none">
+
+  <!-- 頂部導覽列 (Header) -->
+  <header class="flex-none border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md px-4 py-3 z-20">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-bold text-lg">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base text-slate-100">Antigravity AI 網頁系統</h1>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+              雙平台同步
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 flex items-center gap-2">
+            <span>支援 LINE 核心與本地知識庫</span>
+            <span id="session-badge" class="font-mono text-[10px] text-slate-500">ID: ...</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- 右側動作列 -->
+      <div class="flex items-center gap-2">
+        <button id="btn-clear" title="清空對話紀錄" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 transition flex items-center gap-1.5 border border-slate-700">
+          <i class="fa-solid fa-broom text-slate-400"></i>
+          <span class="hidden sm:inline">清空對話</span>
+        </button>
+        <a href="/" target="_blank" title="系統健康狀態" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 border border-slate-700">
+          <i class="fa-solid fa-heart-pulse text-rose-400"></i>
+          <span class="hidden sm:inline">狀態</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 快速指令捷徑橫列 -->
+  <div class="flex-none bg-slate-900/40 border-b border-slate-800/50 px-4 py-2 overflow-x-auto">
+    <div class="max-w-4xl mx-auto flex items-center gap-2 text-xs">
+      <span class="text-slate-500 text-[11px] whitespace-nowrap"><i class="fa-solid fa-bolt mr-1"></i>快捷：</span>
+      <button class="quick-btn px-2.5 py-1 rounded-md bg-slate-800/80 hover:bg-emerald-950/50 hover:text-emerald-400 hover:border-emerald-500/30 text-slate-300 border border-slate-700/60 whitespace-nowrap transition" data-text="請問陳文盛老師是誰？">
+        📚 陳文盛老師
+      </button>
+      <button class="quick-btn px-2.5 py-1 rounded-md bg-slate-800/80 hover:bg-sky-950/50 hover:text-sky-400 hover:border-sky-500/30 text-slate-300 border border-slate-700/60 whitespace-nowrap transition" data-text="/status">
+        🖥️ /status
+      </button>
+      <button class="quick-btn px-2.5 py-1 rounded-md bg-slate-800/80 hover:bg-purple-950/50 hover:text-purple-400 hover:border-purple-500/30 text-slate-300 border border-slate-700/60 whitespace-nowrap transition" data-text="/model">
+        🤖 /model
+      </button>
+      <button class="quick-btn px-2.5 py-1 rounded-md bg-slate-800/80 hover:bg-amber-950/50 hover:text-amber-400 hover:border-amber-500/30 text-slate-300 border border-slate-700/60 whitespace-nowrap transition" data-text="/search 台灣今天天氣">
+        🔍 /search 天氣
+      </button>
+      <button class="quick-btn px-2.5 py-1 rounded-md bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 whitespace-nowrap transition" data-text="/help">
+        ❓ /help
+      </button>
+    </div>
+  </div>
+
+  <!-- 對話訊息主視窗 (Chat History Area) -->
+  <main id="chat-container" class="flex-1 overflow-y-auto px-4 py-6 select-text">
+    <div id="messages-list" class="max-w-4xl mx-auto space-y-5">
+      
+      <!-- 歡迎卡片 -->
+      <div id="welcome-banner" class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-center">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white text-2xl mb-3 shadow-lg shadow-emerald-500/20">
+          <i class="fa-solid fa-sparkles"></i>
+        </div>
+        <h2 class="text-lg font-bold text-slate-100">歡迎使用 Antigravity 智慧助理！</h2>
+        <p class="text-sm text-slate-400 max-w-lg mx-auto mt-1 leading-relaxed">
+          本系統直接串聯您的 LINE Bot 核心服務，可直接提問、查詢離線知識庫、執行搜尋或呼叫 AI 模型。
+        </p>
+        <p class="text-xs text-slate-500 mt-3">
+          💡 提示：按 <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono">Enter</kbd> 送出訊息，<kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono">Shift + Enter</kbd> 換行。
+        </p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- 底部輸入區域 (Input Bar) -->
+  <footer class="flex-none border-t border-slate-800/80 bg-slate-900/90 backdrop-blur-md p-3 sm:p-4 z-20">
+    <div class="max-w-4xl mx-auto">
+      
+      <!-- 錯誤/提示橫條 (預設隱藏) -->
+      <div id="alert-banner" class="hidden mb-2 px-3 py-2 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center justify-between animate-fade-in">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span id="alert-text">發生錯誤</span>
+        </div>
+        <button id="alert-close" class="text-rose-400 hover:text-rose-200">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- 輸入框外層 -->
+      <div class="relative flex items-end gap-2 bg-slate-950 border border-slate-800 rounded-2xl p-2 focus-within:border-emerald-500/60 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+        <textarea
+          id="user-input"
+          rows="1"
+          placeholder="輸入訊息，或輸入 /help 查看可用指令..."
+          class="flex-1 max-h-36 min-h-[44px] py-2.5 px-3 bg-transparent text-sm text-slate-100 placeholder-slate-500 resize-none outline-none leading-relaxed"
+        ></textarea>
+        
+        <button
+          id="btn-send"
+          disabled
+          class="flex-none w-10 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500 text-slate-950 font-bold flex items-center justify-center transition active:scale-95 shadow-md shadow-emerald-500/20"
+          title="送出 (Enter)"
+        >
+          <i class="fa-solid fa-paper-plane text-sm"></i>
+        </button>
+      </div>
+
+      <div class="flex justify-between items-center mt-2 px-1 text-[11px] text-slate-500">
+        <span>對話紀錄安全保存於本機 session</span>
+        <span id="char-counter">0 字</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 前端邏輯 JS -->
+  <script>
+    // ---------------- 1. Session 管理 ----------------
+    function getSessionId() {
+      const STORAGE_KEY = 'antigravity_web_session_id';
+      let sid = localStorage.getItem(STORAGE_KEY);
+      if (!sid) {
+        sid = 'web_' + crypto.randomUUID();
+        localStorage.setItem(STORAGE_KEY, sid);
+      }
+      return sid;
+    }
+
+    const sessionId = getSessionId();
+    document.getElementById('session-badge').innerText = `ID: ${sessionId.slice(0, 12)}...`;
+
+    // ---------------- 2. DOM 元素 ----------------
+    const chatContainer = document.getElementById('chat-container');
+    const messagesList = document.getElementById('messages-list');
+    const userInput = document.getElementById('user-input');
+    const btnSend = document.getElementById('btn-send');
+    const btnClear = document.getElementById('btn-clear');
+    const alertBanner = document.getElementById('alert-banner');
+    const alertText = document.getElementById('alert-text');
+    const alertClose = document.getElementById('alert-close');
+    const charCounter = document.getElementById('char-counter');
+    const welcomeBanner = document.getElementById('welcome-banner');
+
+    let isGenerating = false;
+    let lastUserMessage = '';
+
+    // 自動捲動到底部
+    function scrollToBottom() {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+
+    // 提示通知
+    function showAlert(msg) {
+      alertText.innerText = msg;
+      alertBanner.classList.remove('hidden');
+    }
+    alertClose.addEventListener('click', () => alertBanner.classList.add('hidden'));
+
+    // ---------------- 3. 訊息氣泡渲染 ----------------
+    function appendMessage(role, content, meta = {}) {
+      if (welcomeBanner) welcomeBanner.style.display = 'none';
+
+      const isUser = role === 'user';
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`;
+
+      // 來源標籤
+      let sourceBadge = '';
+      if (!isUser && meta.source) {
+        const badgeMap = {
+          'kb': '<span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i class="fa-solid fa-book mr-1"></i>本地知識庫</span>',
+          'command': '<span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20"><i class="fa-solid fa-terminal mr-1"></i>系統指令</span>',
+          'ai': '<span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20"><i class="fa-solid fa-brain mr-1"></i>AI 回應</span>',
+          'error': '<span class="text-[10px] px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20"><i class="fa-solid fa-circle-exclamation mr-1"></i>系統通知</span>',
+          'security': '<span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-shield mr-1"></i>安全防護</span>'
+        };
+        sourceBadge = badgeMap[meta.source] || '';
+      }
+
+      const bubble = document.createElement('div');
+      if (isUser) {
+        bubble.className = 'max-w-[85%] sm:max-w-xl rounded-2xl rounded-tr-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3 shadow-md text-sm leading-relaxed break-words whitespace-pre-wrap';
+        bubble.textContent = content;
+      } else {
+        bubble.className = 'max-w-[95%] sm:max-w-2xl rounded-2xl rounded-tl-sm bg-slate-900 border border-slate-800 text-slate-200 px-4 py-3.5 shadow-sm text-sm leading-relaxed prose-content break-words';
+        try {
+          bubble.innerHTML = marked.parse(content || '');
+        } catch (e) {
+          bubble.textContent = content;
+        }
+      }
+
+      // 時間與元數據
+      const subInfo = document.createElement('div');
+      subInfo.className = 'flex items-center gap-2 px-1 text-[11px] text-slate-500';
+      const timeStr = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      subInfo.innerHTML = isUser ? `<span>${timeStr}</span>` : `${sourceBadge} <span>${timeStr}</span>`;
+
+      wrapper.appendChild(bubble);
+      wrapper.appendChild(subInfo);
+
+      // 若為錯誤訊息，附帶重試按鈕
+      if (!isUser && meta.isError && meta.retryText) {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'mt-1 text-xs text-rose-400 hover:text-rose-300 underline flex items-center gap-1';
+        retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 重新嘗試';
+        retryBtn.onclick = () => {
+          sendMessage(meta.retryText);
+        };
+        wrapper.appendChild(retryBtn);
+      }
+
+      messagesList.appendChild(wrapper);
+      scrollToBottom();
+      return wrapper;
+    }
+
+    // 載入中動畫氣泡
+    function showLoadingBubble() {
+      const wrapper = document.createElement('div');
+      wrapper.id = 'loading-bubble';
+      wrapper.className = 'flex items-center gap-2 max-w-xs rounded-2xl rounded-tl-sm bg-slate-900 border border-slate-800 text-slate-400 px-4 py-3 text-xs';
+      wrapper.innerHTML = `
+        <span class="flex gap-1 items-center">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></span>
+          <span class="w-2 h-2 rounded-full bg-teal-400 animate-bounce [animation-delay:0.2s]"></span>
+          <span class="w-2 h-2 rounded-full bg-sky-400 animate-bounce [animation-delay:0.4s]"></span>
+        </span>
+        <span class="ml-2 font-medium">思考處理中...</span>
+      `;
+      messagesList.appendChild(wrapper);
+      scrollToBottom();
+    }
+
+    function removeLoadingBubble() {
+      const el = document.getElementById('loading-bubble');
+      if (el) el.remove();
+    }
+
+    // ---------------- 4. 發送與 API 通訊 ----------------
+    async function sendMessage(textToSend) {
+      const text = (textToSend || userInput.value).trim();
+      if (!text || isGenerating) return;
+
+      isGenerating = true;
+      lastUserMessage = text;
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      updateInputState();
+      alertBanner.classList.add('hidden');
+
+      // 呈現使用者訊息
+      appendMessage('user', text);
+      showLoadingBubble();
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            message: text
+          })
+        });
+
+        const data = await res.json();
+        removeLoadingBubble();
+
+        if (res.ok && data.success) {
+          appendMessage('assistant', data.reply, {
+            source: data.source,
+            model: data.model
+          });
+        } else {
+          const errMsg = data.reply || data.error || '伺服器未回傳有效訊息。';
+          appendMessage('assistant', `⚠️ 回覆失敗：${errMsg}`, {
+            source: 'error',
+            isError: true,
+            retryText: text
+          });
+          showAlert(errMsg);
+        }
+      } catch (err) {
+        removeLoadingBubble();
+        const errText = `網路連線異常，請確認伺服器已啟動 (${err.message})。`;
+        appendMessage('assistant', `❌ ${errText}`, {
+          source: 'error',
+          isError: true,
+          retryText: text
+        });
+        showAlert(errText);
+      } finally {
+        isGenerating = false;
+        updateInputState();
+        userInput.focus();
+      }
+    }
+
+    // ---------------- 5. 載入歷史紀錄 ----------------
+    async function loadHistory() {
+      try {
+        const res = await fetch(`/api/history?session_id=${encodeURIComponent(sessionId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.history && data.history.length > 0) {
+            if (welcomeBanner) welcomeBanner.style.display = 'none';
+            data.history.forEach(item => {
+              appendMessage(item.role === 'user' ? 'user' : 'assistant', item.content, {
+                source: item.role === 'user' ? null : 'ai'
+              });
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('載入歷史紀錄失敗:', e);
+      }
+    }
+
+    // ---------------- 6. 清空歷史對話 ----------------
+    btnClear.addEventListener('click', async () => {
+      if (!confirm('確定要清空目前的對話記憶嗎？')) return;
+      try {
+        const res = await fetch('/api/clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId })
+        });
+        if (res.ok) {
+          messagesList.innerHTML = '';
+          if (welcomeBanner) {
+            welcomeBanner.style.display = 'block';
+            messagesList.appendChild(welcomeBanner);
+          }
+          appendMessage('assistant', '🧹 對話紀錄已清空，隨時可以開啟新話題！', { source: 'command' });
+        }
+      } catch (e) {
+        showAlert('清空對話失敗，請稍後重試。');
+      }
+    });
+
+    // ---------------- 7. 輸入框事件 ----------------
+    function updateInputState() {
+      const len = userInput.value.trim().length;
+      btnSend.disabled = len === 0 || isGenerating;
+      charCounter.innerText = `${len} 字`;
+    }
+
+    userInput.addEventListener('input', () => {
+      userInput.style.height = 'auto';
+      userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+      updateInputState();
+    });
+
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    btnSend.addEventListener('click', () => sendMessage());
+
+    // 快速捷徑按鈕綁定
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const query = btn.getAttribute('data-text');
+        sendMessage(query);
+      });
+    });
+
+    // 初始化載入
+    loadHistory();
+    userInput.focus();
+  </script>
+</body>
+</html>

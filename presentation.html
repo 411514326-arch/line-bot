@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINE Bot 網頁化系統與 Google Cloud 部署 - 工作執行成果簡報</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
+    }
+    .slide {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.4s ease-in-out;
+    }
+    .slide.active {
+      display: flex;
+      opacity: 1;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #10b981 0%, #38bdf8 50%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    @media print {
+      body { background: white !important; color: black !important; }
+      .slide { display: block !important; opacity: 1 !important; page-break-after: always; min-height: 100vh; }
+      .no-print { display: none !important; }
+      .glass-card { border: 1px solid #ccc !important; background: #fafafa !important; }
+      .gradient-text { -webkit-text-fill-color: initial !important; color: #0284c7 !important; }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col justify-between selection:bg-emerald-500 selection:text-white overflow-hidden">
+
+  <!-- 頂部簡報導覽列 -->
+  <header class="no-print flex-none border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-6 py-3 flex items-center justify-between z-30">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-emerald-500/20">
+        <i class="fa-solid fa-layer-group"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-tight text-slate-200">專案工作執行簡報</h1>
+        <p class="text-[11px] text-slate-400">LINE Bot 網頁化系統 ➔ Google Apps Script ➔ Cloud Run 部署</p>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-3">
+      <span id="slide-indicator" class="text-xs font-mono text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700">1 / 8</span>
+      <button onclick="toggleFullScreen()" title="全螢幕播放 (F)" class="p-2 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+        <i class="fa-solid fa-expand"></i>
+      </button>
+      <button onclick="window.print()" title="列印或儲存為 PDF" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-file-pdf text-rose-400"></i>
+        <span>匯出 PDF</span>
+      </button>
+      <a href="/chat" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20">
+        <i class="fa-solid fa-comments"></i>
+        <span>打開網頁聊天室</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- 簡報投影主容器 -->
+  <main class="flex-1 relative overflow-y-auto px-6 py-8 flex items-center justify-center">
+
+    <!-- Slide 1: 封面 -->
+    <section class="slide active flex-col items-center justify-center text-center max-w-4xl mx-auto w-full">
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-6">
+        <i class="fa-solid fa-rocket animate-pulse"></i> 2026/10/19 專案里程碑交付
+      </div>
+      <h2 class="text-4xl sm:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
+        LINE Bot 網頁化、GAS 整合與<br><span class="gradient-text">Google Cloud Run 部署全紀錄</span>
+      </h2>
+      <p class="text-base sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        從單一 LINE 聊天機器人，蛻變為支援<b>瀏覽器網頁即時聊天</b>、<b>Google Sheets 試算表公式</b>與<b>雲端容器化自動伸縮</b>的跨平台智慧系統。
+      </p>
+      
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-3xl">
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold text-emerald-400">3 大平台</div>
+          <div class="text-xs text-slate-400 mt-1">LINE + 網頁 + GAS</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold text-sky-400">100% 解耦</div>
+          <div class="text-xs text-slate-400 mt-1">共用核心業務層</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold text-indigo-400">21 項</div>
+          <div class="text-xs text-slate-400 mt-1">自動化測試全通過</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold text-amber-400">生產容器</div>
+          <div class="text-xs text-slate-400 mt-1">Cloud Run 即刻部署</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 2: 改造背景與核心目標 -->
+    <section class="slide flex-col max-w-4xl mx-auto w-full">
+      <div class="text-xs font-mono font-semibold text-emerald-400 mb-2">MILESTONE 01 // OBJECTIVES</div>
+      <h3 class="text-3xl font-extrabold text-slate-100 mb-4">為什麼改造？我們要達成什麼目標？</h3>
+      <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+        原本的 LINE Bot 深度綁定 LINE Webhook 流程，且依賴本機伺服器。今天我們透過分層架構進行解耦，在<b>完全不破壞原有 LINE 功能</b>的前提下，全面釋放多端應用的能力。
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-rose-500">
+          <h4 class="text-base font-bold text-rose-300 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation"></i> 改造前的瓶頸與痛點
+          </h4>
+          <ul class="space-y-2.5 text-xs text-slate-300">
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">•</span>
+              <span><b>依賴 LINE App</b>：使用者必須打開 LINE 才能互動，無法從瀏覽器直接開啟。</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">•</span>
+              <span><b>無法外部整合</b>：Google Sheets、試算表或自動化腳本無法直接呼叫 Bot。</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">•</span>
+              <span><b>雲端部署風險</b>：若貿然上傳 Cloud Run，原有的本機終端指令會操作雲端 Linux 容器。</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-emerald-500">
+          <h4 class="text-base font-bold text-emerald-300 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check"></i> 今日達成的四大核心成果
+          </h4>
+          <ul class="space-y-2.5 text-xs text-slate-300">
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><b>獨立網頁聊天室</b>：免裝 App，開啟 Google Chrome 即可享受完整 AI 與知識庫。</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><b>Google Apps Script 整合</b>：能在試算表格子中下公式 <code>=ASK_BOT("...")</code>。</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><b>共用統一核心</b>：LINE、網頁、GAS 100% 共用相同的 AI、本地知識庫與搜尋能力。</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><b>雲端原生容器化</b>：提供 Dockerfile、Gunicorn 與圖文部署手冊，隨時直上 Cloud Run。</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: 今日所有動作與時間軸清單 -->
+    <section class="slide flex-col max-w-4xl mx-auto w-full">
+      <div class="text-xs font-mono font-semibold text-sky-400 mb-2">TIMELINE // ACTIONS & COMMANDS</div>
+      <h3 class="text-3xl font-extrabold text-slate-100 mb-4">今日執行的所有動作與指令時間軸</h3>
+      
+      <div class="space-y-3.5 text-xs overflow-y-auto max-h-[460px] pr-2">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+          <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono font-bold">階段一</span>
+          <div>
+            <div class="font-bold text-slate-200">全專案逆向工程與功能盤點</div>
+            <p class="text-slate-400 mt-1">檢查全部原始碼，盤點 11 大功能點，製作「現有功能盤點表」，並指出 Cloud Run 容器無狀態與本機終端指令衝突之關鍵架構點。</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+          <span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono font-bold">階段二</span>
+          <div>
+            <div class="font-bold text-slate-200">提出三層架構圖與內部統一訊息結構設計</div>
+            <p class="text-slate-400 mt-1">設計 <code>BotRequest</code> 與 <code>BotResponse</code> 統一格式；確立 Python + Flask + Gunicorn + 輕量 SPA 前端之技術選型。</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+          <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-mono font-bold">階段三</span>
+          <div>
+            <div class="font-bold text-slate-200">建立共用 Bot 核心業務層 (bot_service.py) 並重構 app.py</div>
+            <p class="text-slate-400 mt-1">抽離指令、知識庫、AI 與圖片分析邏輯；加入 Google Cloud Run 雲端環境安全防護；完成 7 項業務核心與 2 項 Webhook 安全測試。</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+          <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 font-mono font-bold">階段四</span>
+          <div>
+            <div class="font-bold text-slate-200">打造繁體中文現代化聊天介面 (chat.html) 與 REST API</div>
+            <p class="text-slate-400 mt-1">建構 RWD 網頁、Enter 發送、載入動畫、錯誤重試、快捷按鈕、LocalStorage Session 訪客隔離；掛載 <code>/api/chat</code>、<code>/api/history</code>、<code>/api/clear</code>。</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+          <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono font-bold">階段五</span>
+          <div>
+            <div class="font-bold text-slate-200">實現 Google Apps Script 深度整合、全域 CORS 與儲存抽象層</div>
+            <p class="text-slate-400 mt-1">建立 <code>/api/gas/chat</code> 專用端點、CORS 標頭、OPTIONS 預檢、<code>WEB_API_KEY</code> 防護；編寫 <code>gas_integration.js</code> 試算表自訂函數。</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+          <span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 font-mono font-bold">階段六~九</span>
+          <div>
+            <div class="font-bold text-slate-200">全套 21 項測試驗收、Cloud Run 容器建置與部署手冊交付</div>
+            <p class="text-slate-400 mt-1">編寫生產級 Dockerfile、.dockerignore、requirements.txt (加入 Gunicorn) 與圖文並茂的 <code>DEPLOYMENT_GUIDE.md</code> 部署指南。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 4: 系統架構圖 (三端合一) -->
+    <section class="slide flex-col max-w-4xl mx-auto w-full">
+      <div class="text-xs font-mono font-semibold text-emerald-400 mb-2">ARCHITECTURE // MULTI-PLATFORM</div>
+      <h3 class="text-3xl font-extrabold text-slate-100 mb-3">全新三端合一系統架構圖</h3>
+      <p class="text-slate-400 text-xs mb-5">所有請求進入後端後，皆被轉化為統一資料物件，達到核心業務極致復用。</p>
+
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-center">
+          <i class="fa-brands fa-line text-emerald-400 text-2xl mb-1"></i>
+          <div class="font-bold text-xs text-emerald-300">LINE App 端</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">POST /callback</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-sky-950/40 border border-sky-500/40 text-center">
+          <i class="fa-solid fa-globe text-sky-400 text-2xl mb-1"></i>
+          <div class="font-bold text-xs text-sky-300">瀏覽器網頁端</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">GET /chat & POST /api/chat</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-center">
+          <i class="fa-solid fa-table-cells text-amber-400 text-2xl mb-1"></i>
+          <div class="font-bold text-xs text-amber-300">Google Apps Script</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">POST /api/gas/chat</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-slate-900 border border-slate-700/80 mb-4">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-200 border-b border-slate-800 pb-2 mb-3">
+          <span>⚡ 共用核心業務層 (core/bot_service.py)</span>
+          <span class="text-emerald-400 text-[11px]">統一封裝 BotRequest ➔ BotResponse</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2 text-center text-xs">
+          <div class="p-2 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300">
+            <i class="fa-solid fa-shield text-emerald-400 mb-1"></i>
+            <div>安全與白名單</div>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300">
+            <i class="fa-solid fa-terminal text-purple-400 mb-1"></i>
+            <div>斜線系統指令</div>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300">
+            <i class="fa-solid fa-book-bookmark text-amber-400 mb-1"></i>
+            <div>本地離線知識庫</div>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300">
+            <i class="fa-solid fa-brain text-sky-400 mb-1"></i>
+            <div>Gemini / Ollama</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-3">
+          <i class="fa-solid fa-magnifying-glass text-sky-400 text-xl"></i>
+          <div>
+            <div class="font-bold text-slate-200">免金鑰網頁搜尋</div>
+            <div class="text-[10px] text-slate-400">DuckDuckGo ➔ Bing RSS ➔ SearXNG</div>
+          </div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-3">
+          <i class="fa-solid fa-database text-indigo-400 text-xl"></i>
+          <div>
+            <div class="font-bold text-slate-200">抽象儲存引擎 (storage.py)</div>
+            <div class="text-[10px] text-slate-400">本機 JSON 檔案 ➔ 預留 Firestore 雲端資料庫</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: Google Apps Script 整合展示 -->
+    <section class="slide flex-col max-w-4xl mx-auto w-full">
+      <div class="text-xs font-mono font-semibold text-amber-400 mb-2">GOOGLE APPS SCRIPT // SHEETS INTEGRATION</div>
+      <h3 class="text-3xl font-extrabold text-slate-100 mb-3">Google Apps Script (GAS) 整合與自訂函數</h3>
+      <p class="text-slate-400 text-xs mb-5">依據您的特別需求，我們建立了標準的 GAS 通訊端點，直接在試算表中打公式即可呼叫 Bot！</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass-card p-4 rounded-xl">
+          <div class="flex items-center gap-2 text-xs font-bold text-emerald-400 mb-2">
+            <i class="fa-solid fa-file-excel"></i> 試算表格子自訂公式
+          </div>
+          <p class="text-xs text-slate-400 mb-3">直接在任意儲存格輸入公式，AI 即刻回答：</p>
+          <div class="p-3 rounded-lg bg-slate-950 font-mono text-xs text-emerald-300 border border-emerald-500/30 mb-3">
+            =ASK_BOT("請問陳文盛老師開哪些課？")
+          </div>
+          <div class="p-3 rounded-lg bg-slate-950 font-mono text-xs text-emerald-300 border border-emerald-500/30">
+            =ASK_BOT(A2)
+          </div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl">
+          <div class="flex items-center gap-2 text-xs font-bold text-amber-400 mb-2">
+            <i class="fa-solid fa-code"></i> GAS 腳本自訂呼叫 (gas_integration.js)
+          </div>
+          <div class="p-2.5 rounded-lg bg-slate-950 font-mono text-[11px] text-slate-300 border border-slate-800 overflow-x-auto leading-relaxed">
+            <span class="text-purple-400">function</span> <span class="text-blue-400">askBot</span>(prompt) {<br>
+            &nbsp;&nbsp;<span class="text-purple-400">var</span> res = <span class="text-yellow-400">UrlFetchApp</span>.fetch(<span class="text-emerald-300">URL</span>, {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;method: <span class="text-emerald-300">"post"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;contentType: <span class="text-emerald-300">"application/json"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;payload: <span class="text-yellow-400">JSON</span>.stringify({ message: prompt })<br>
+            &nbsp;&nbsp;});<br>
+            &nbsp;&nbsp;<span class="text-purple-400">return</span> <span class="text-yellow-400">JSON</span>.parse(res.getContentText()).reply;<br>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+        <span>💡 支援跨來源存取：後端已內建 <code>Access-Control-Allow-Origin: *</code> 與 OPTIONS 預檢支援。</span>
+        <span class="text-emerald-400 font-semibold">CORS 100% 相容</span>
+      </div>
+    </section>
+
+    <!-- Slide 6: 自動化測試成果驗收 -->
+    <section class="slide flex-col max-w-4xl mx-auto w-full">
+      <div class="text-xs font-mono font-semibold text-indigo-400 mb-2">VERIFICATION // TEST REPORT</div>
+      <h3 class="text-3xl font-extrabold text-slate-100 mb-3">全套 21 項自動化測試通過清單</h3>
+      <p class="text-slate-400 text-xs mb-5">遵守嚴謹工程原則，絕不憑空推測，所有重構與新功能皆經單元測試全面驗證。</p>
+
+      <div class="grid grid-cols-2 gap-3 text-xs mb-4">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="font-bold text-slate-200 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-microchip text-sky-400"></i> 核心服務測試 (7/7 通過)
+          </div>
+          <ul class="space-y-1 text-slate-400 text-[11px]">
+            <li><span class="text-emerald-400">✓</span> 空白訊息自動防護 (test_empty_message)</li>
+            <li><span class="text-emerald-400">✓</span> /help 與 /status 指令 (test_commands)</li>
+            <li><span class="text-emerald-400">✓</span> 知識庫「陳文盛老師」命中 (test_kb)</li>
+            <li><span class="text-emerald-400">✓</span> LINE 白名單阻擋測試 (test_whitelist)</li>
+            <li><span class="text-emerald-400">✓</span> 雲端安全模式阻擋 /cmd (test_security)</li>
+          </ul>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="font-bold text-slate-200 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-window-maximize text-emerald-400"></i> 網頁與 REST API 測試 (6/6 通過)
+          </div>
+          <ul class="space-y-1 text-slate-400 text-[11px]">
+            <li><span class="text-emerald-400">✓</span> /chat 聊天介面渲染 (test_web_page)</li>
+            <li><span class="text-emerald-400">✓</span> 瀏覽器造訪根目錄渲染 (test_index)</li>
+            <li><span class="text-emerald-400">✓</span> /api/chat 對話請求 (test_api_chat)</li>
+            <li><span class="text-emerald-400">✓</span> 歷史記錄載入與清空 (test_history_clear)</li>
+            <li><span class="text-emerald-400">✓</span> 速率限制防刷保護 (test_rate_limit)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="font-bold text-slate-200 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-key text-amber-400"></i> GAS 整合與安全測試 (6/6 通過)
+          </div>
+          <ul class="space-y-1 text-slate-400 text-[11px]">
+            <li><span class="text-emerald-400">✓</span> CORS 跨域標頭存在 (test_cors)</li>
+            <li><span class="text-emerald-400">✓</span> OPTIONS Preflight 預檢 (test_options)</li>
+            <li><span class="text-emerald-400">✓</span> GAS POST / GET 模式 (test_gas)</li>
+            <li><span class="text-emerald-400">✓</span> WEB_API_KEY 驗證 (test_api_key)</li>
+            <li><span class="text-emerald-400">✓</span> 抽象儲存生命週期 (test_storage)</li>
+          </ul>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="font-bold text-slate-200 mb-2 flex items-center gap-1.5">
+            <i class="fa-brands fa-line text-emerald-400"></i> LINE 路由安全性 (2/2 通過)
+          </div>
+          <ul class="space-y-1 text-slate-400 text-[11px]">
+            <li><span class="text-emerald-400">✓</span> GET / 健康檢查探針 (test_health)</li>
+            <li><span class="text-emerald-400">✓</span> 未授權簽章攔截 400 (test_signature)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 7: Cloud Run 容器化與部署 -->
+    <section class="slide flex-col max-w-4xl mx-auto w-full">
+      <div class="text-xs font-mono font-semibold text-rose-400 mb-2">DEPLOYMENT // GOOGLE CLOUD RUN</div>
+      <h3 class="text-3xl font-extrabold text-slate-100 mb-3">Google Cloud Run 生產容器與部署步驟</h3>
+      <p class="text-slate-400 text-xs mb-5">已產製正式 <code>Dockerfile</code> 與 <code>DEPLOYMENT_GUIDE.md</code> 手冊，採用台灣彰化機房（asia-east1）最低延遲。</p>
+
+      <div class="grid grid-cols-3 gap-3 mb-4 text-center">
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="text-emerald-400 font-bold text-sm mb-1">步驟 1</div>
+          <div class="text-xs text-slate-200 font-semibold">開啟 Cloud Shell</div>
+          <div class="text-[10px] text-slate-500 mt-1">Google 瀏覽器終端機</div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="text-sky-400 font-bold text-sm mb-1">步驟 2</div>
+          <div class="text-xs text-slate-200 font-semibold">一鍵執行指令</div>
+          <div class="text-[10px] text-slate-500 mt-1">gcloud run deploy</div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="text-purple-400 font-bold text-sm mb-1">步驟 3</div>
+          <div class="text-xs text-slate-200 font-semibold">更新 LINE 後台</div>
+          <div class="text-[10px] text-slate-500 mt-1">貼上 /callback 並 Verify</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 mb-4 overflow-x-auto">
+        <span class="text-slate-500"># 部署至 Cloud Run 核心指令（複製至 Cloud Shell 執行）：</span><br>
+        <span class="text-purple-400">gcloud</span> run deploy line-bot-web \<br>
+        &nbsp;&nbsp;--source . \<br>
+        &nbsp;&nbsp;--region asia-east1 \<br>
+        &nbsp;&nbsp;--allow-unauthenticated \<br>
+        &nbsp;&nbsp;--set-env-vars=<span class="text-emerald-300">"LINE_CHANNEL_SECRET=...,LINE_CHANNEL_ACCESS_TOKEN=...,GEMINI_API_KEY=...,LLM_BACKEND=gemini,PORT=8080"</span>
+      </div>
+
+      <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
+        <i class="fa-solid fa-circle-info text-sky-400"></i>
+        <span>詳細步驟、排錯技巧與版本回退方法，請開啟專案內的 <b>DEPLOYMENT_GUIDE.md</b> 檔案查閱。</span>
+      </div>
+    </section>
+
+    <!-- Slide 8: 成果總結與結語 -->
+    <section class="slide flex-col items-center justify-center text-center max-w-4xl mx-auto w-full">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white text-3xl mb-4 shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-flag-checkered"></i>
+      </div>
+      <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 text-slate-100">
+        專案改造已 100% 圓滿達成！
+      </h2>
+      <p class="text-slate-400 text-base max-w-xl mx-auto mb-8 leading-relaxed">
+        原本的 LINE 機器人不僅完整保留，還獲得了<b>網頁即時對話</b>、<b>Google Sheets 試算表公式</b>與<b>雲端高並發架構</b>。所有程式碼與測試均已交付完畢！
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <a href="/chat" target="_blank" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+          <i class="fa-solid fa-comments"></i> 立即體驗網頁聊天室
+        </a>
+        <a href="https://github.com/411514326-arch/line-bot" target="_blank" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm transition flex items-center gap-2">
+          <i class="fa-brands fa-github"></i> 前往 GitHub 儲存庫
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部簡報控制列 -->
+  <footer class="no-print flex-none border-t border-slate-800/80 bg-slate-900/80 px-6 py-3 flex items-center justify-between z-30">
+    <div class="flex items-center gap-2 text-xs text-slate-500">
+      <span>使用鍵盤</span>
+      <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono">←</kbd>
+      <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono">→</kbd>
+      <span>或空白鍵翻頁</span>
+    </div>
+
+    <!-- 頁碼跳轉按鈕 -->
+    <div class="flex items-center gap-2">
+      <button id="prev-btn" onclick="prevSlide()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 text-xs border border-slate-700 transition flex items-center gap-1">
+        <i class="fa-solid fa-chevron-left"></i> 上一頁
+      </button>
+      <button id="next-btn" onclick="nextSlide()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-bold text-xs transition flex items-center gap-1 shadow-md shadow-emerald-500/20">
+        下一頁 <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 簡報互動邏輯腳本 -->
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const indicator = document.getElementById('slide-indicator');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    let currentSlide = 0;
+
+    function updateSlide() {
+      slides.forEach((s, idx) => {
+        s.classList.toggle('active', idx === currentSlide);
+      });
+      indicator.innerText = `${currentSlide + 1} / ${slides.length}`;
+      prevBtn.disabled = currentSlide === 0;
+      prevBtn.classList.toggle('opacity-50', currentSlide === 0);
+      nextBtn.disabled = currentSlide === slides.length - 1;
+      nextBtn.classList.toggle('opacity-50', currentSlide === slides.length - 1);
+    }
+
+    function nextSlide() {
+      if (currentSlide < slides.length - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key.toLowerCase() === 'f') {
+        toggleFullScreen();
+      }
+    });
+
+    updateSlide();
+  </script>
+</body>
+</html>

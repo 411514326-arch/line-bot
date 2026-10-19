@@ -14,7 +14,7 @@ if sys.platform == "win32":
 
 import logging
 
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, abort, jsonify, render_template, redirect, url_for, send_file
 
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
@@ -44,12 +44,13 @@ from config import (
     PORT,
     RATE_LIMIT_REQUESTS,
     RATE_LIMIT_WINDOW,
-    is_user_allowed
+    is_user_allowed,
+    is_api_key_valid
 )
-from command_handler import handle_command
-from agent import ask_antigravity, clear_session
-from knowledge_base import format_entry, search_kb
-from llm import list_backends
+from core.schemas import BotRequest, BotResponse, BotPlatform
+from core.bot_service import handle_bot_request, analyze_image_bytes
+from llm import list_backends, get_history
+from agent import clear_session
 
 # Configure logging
 logging.basicConfig(
@@ -59,6 +60,15 @@ logging.basicConfig(
 logger = logging.getLogger("line_bot")
 
 app = Flask(__name__)
+
+# ---------------- 跨來源資源共享 (CORS) 支援 ----------------
+# 確保 Google Apps Script、瀏覽器前端或第三方系統能順暢呼叫 API
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key, Accept"
+    return response
 
 # Validate credentials
 if not LINE_CHANNEL_SECRET or not LINE_CHANNEL_ACCESS_TOKEN:
@@ -87,46 +97,22 @@ def _check_rate_limit(user_id: str) -> bool:
 
 def process_user_message(reply_token: str, user_id: str, text: str):
     """
-    Process incoming message asynchronously:
-    1. Check for system/shell commands
-    2. Check for session reset
-    3. Check local knowledge base (offline-first)
-    4. Forward conversation to the configured LLM backend
-    5. Send response back to LINE
+    Process incoming message asynchronously via shared bot core service:
+    1. Wrap as BotRequest
+    2. Forward to handle_bot_request
+    3. Send response back to LINE
     """
-    response_text = ""
-    clean_text = text.strip()
-
-    if not clean_text:
-        send_line_message(reply_token, user_id, "⚠️ 收到空白訊息，請輸入內容後再試。")
-        return
-
     try:
-        # Check authorization
-        if not is_user_allowed(user_id):
-            response_text = (
-                "⛔ Access restricted: Your LINE account is not whitelisted.\n"
-                f"Your User ID is: {user_id}\n"
-                "Please add this ID to ALLOWED_USER_IDS in the server's .env file."
-            )
-        elif clean_text.lower() in ("/clear", "!clear", "/reset", "!reset"):
-            response_text = clear_session(user_id)
-        else:
-            # Check built-in commands (/cmd, /status, /model, /kb, /search...)
-            is_cmd, cmd_output = handle_command(user_id, clean_text)
-            if is_cmd:
-                response_text = cmd_output
-            else:
-                # 先查本地知識庫：離線、快速、答案準確（例如「陳文盛是誰」）
-                kb_hits = search_kb(clean_text)
-                if kb_hits and kb_hits[0]["score"] >= 3:
-                    response_text = format_entry(kb_hits[0])
-                else:
-                    # Chat with the configured LLM backend (Gemini 或開源模型)
-                    response_text = ask_antigravity(user_id, clean_text)
-
+        req = BotRequest(
+            user_id=user_id,
+            text=text,
+            platform=BotPlatform.LINE,
+            reply_token=reply_token,
+        )
+        resp = handle_bot_request(req)
+        response_text = resp.text
     except Exception as e:
-        logger.exception("Error while processing message:")
+        logger.exception("Error while processing message in worker:")
         response_text = f"⚠️ An error occurred while processing your message:\n{str(e)}"
 
     # Send response back to LINE
@@ -166,18 +152,158 @@ def send_line_message(reply_token: str, user_id: str, text: str):
 
 
 @app.route("/", methods=["GET"])
+def index():
+    """根目錄：瀏覽器存取時提供網頁聊天介面，API 客戶端存取時回傳健康檢查 JSON。"""
+    accept = request.headers.get("Accept", "")
+    if "text/html" in accept and "application/json" not in accept:
+        return render_template("chat.html")
+    return health_check()
+
+
+@app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint to test if server is running."""
     configured = bool(LINE_CHANNEL_SECRET and LINE_CHANNEL_ACCESS_TOKEN)
     return jsonify({
         "status": "online",
         "service": "Antigravity LINE Bot",
+        "web_ui": "/chat",
         "line_configured": configured,
         "endpoint": "/callback",
         "ai_backend": LLM_BACKEND,
         "open_source_model": OPENAI_MODEL if LLM_BACKEND == "openai" else None,
         "backends": list_backends()
     })
+
+
+@app.route("/chat", methods=["GET"])
+def web_chat_page():
+    """獨立網頁聊天頁面路由。"""
+    return render_template("chat.html")
+
+
+@app.route("/presentation", methods=["GET"])
+def presentation_page():
+    """工作執行成果簡報投影片頁面。"""
+    return send_file("presentation.html")
+
+
+@app.route("/api/chat", methods=["POST", "OPTIONS"])
+def api_chat():
+    """網頁聊天訊息 API（支援 CORS、Session 隔離與 API Key 防護）。"""
+    if request.method == "OPTIONS":
+        return "", 200
+
+    data = request.get_json(silent=True) or {}
+    api_key = request.headers.get("X-API-Key") or data.get("api_key", "")
+
+    # API 金鑰驗證（若伺服器有設定 WEB_API_KEY）
+    if not is_api_key_valid(api_key):
+        return jsonify({"success": False, "error": "無效或缺少 API 金鑰 (Invalid or missing API Key)"}), 401
+
+    session_id = str(data.get("session_id", "")).strip()
+    message = str(data.get("message", "")).strip()
+
+    # 若為外部客戶端（如自動化腳本）未附帶 session_id，自動給予預設標識
+    if not session_id:
+        client_ip = request.remote_addr or "client"
+        session_id = f"auto_session_{abs(hash(client_ip)) % 100000}"
+
+    if not message:
+        return jsonify({"success": False, "error": "訊息內容不可為空白"}), 400
+
+    # 頻率限制檢查
+    if not _check_rate_limit(session_id):
+        return jsonify({
+            "success": False,
+            "source": "security",
+            "reply": "⏳ 訊息發送太過頻繁，請稍候再試！"
+        }), 429
+
+    # 封裝為統一請求並呼叫共用核心服務
+    req = BotRequest(
+        user_id=session_id,
+        text=message,
+        platform=BotPlatform.WEB,
+        client_ip=request.remote_addr
+    )
+    resp = handle_bot_request(req)
+
+    return jsonify({
+        "success": resp.success,
+        "reply": resp.text,
+        "source": resp.source,
+        "model": resp.model_name
+    })
+
+
+@app.route("/api/gas/chat", methods=["GET", "POST", "OPTIONS"])
+def gas_chat():
+    """
+    專為 Google Apps Script (GAS) 及 Google Sheets / Docs 設計的輕量端點。
+    支援 GET (查詢字串 ?message=...) 與 POST (JSON payload: { "message": "..." })。
+    回傳超簡潔 JSON 結構，方便 UrlFetchApp 一行解析。
+    """
+    if request.method == "OPTIONS":
+        return "", 200
+
+    if request.method == "GET":
+        message = request.args.get("message", "").strip()
+        api_key = request.args.get("api_key", "") or request.headers.get("X-API-Key", "")
+        session_id = request.args.get("session_id", "gas_default").strip()
+    else:
+        data = request.get_json(silent=True) or {}
+        message = str(data.get("message", "")).strip()
+        api_key = str(data.get("api_key", "")).strip() or request.headers.get("X-API-Key", "")
+        session_id = str(data.get("session_id", "gas_default")).strip()
+
+    # 驗證金鑰
+    if not is_api_key_valid(api_key):
+        return jsonify({"status": "error", "reply": "❌ API Key 驗證失敗"}), 401
+
+    if not message:
+        return jsonify({"status": "error", "reply": "⚠️ 請提供訊息內容 (message)"}), 400
+
+    if not _check_rate_limit(session_id):
+        return jsonify({"status": "error", "reply": "⏳ 請求頻率過高，請稍後再試"}), 429
+
+    req = BotRequest(
+        user_id=session_id,
+        text=message,
+        platform=BotPlatform.WEB,
+        client_ip=request.remote_addr
+    )
+    resp = handle_bot_request(req)
+
+    return jsonify({
+        "status": "success" if resp.success else "fail",
+        "reply": resp.text,
+        "source": resp.source,
+        "model": resp.model_name
+    })
+
+
+@app.route("/api/history", methods=["GET"])
+def api_history():
+    """取得特定 Session 的對話歷史。"""
+    session_id = request.args.get("session_id", "").strip()
+    if not session_id:
+        return jsonify({"success": False, "error": "缺少 session_id 參數"}), 400
+
+    history = get_history(session_id)
+    return jsonify({"success": True, "history": history})
+
+
+@app.route("/api/clear", methods=["POST"])
+def api_clear():
+    """清空特定 Session 的對話歷史。"""
+    data = request.get_json(silent=True) or {}
+    session_id = str(data.get("session_id", "")).strip()
+    if not session_id:
+        return jsonify({"success": False, "error": "缺少 session_id 參數"}), 400
+
+    msg = clear_session(session_id)
+    return jsonify({"success": True, "message": msg})
 
 
 @app.route("/callback", methods=["POST"])
@@ -242,29 +368,12 @@ def handle_image_message(event: MessageEvent):
     logger.info(f"Received image from {user_id}, message_id={message_id}")
 
     try:
-        import base64
-        from google import genai
-        from google.genai import types as gtypes
-
         # 下載圖片 bytes（LINE SDK v3）
         with ApiClient(line_config) as api_client:
             blob_api = MessagingApiBlob(api_client)
             content = blob_api.get_message_content(message_id)  # 回傳 bytes
-            img_b64 = base64.b64encode(content).decode("utf-8")
 
-        # 使用 Gemini 分析圖片（使用配置的第一個模型）
-        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-        response = gemini_client.models.generate_content(
-            model=GEMINI_MODELS[0],
-            contents=[
-                gtypes.Part.from_bytes(
-                    data=base64.b64decode(img_b64),
-                    mime_type="image/jpeg"
-                ),
-                "請用繁體中文描述這張圖片的內容。",
-            ],
-        )
-        reply = (response.text or "無法分析圖片。").strip()
+        reply = analyze_image_bytes(content)
     except Exception as e:
         logger.warning(f"圖片分析失敗: {e}")
         reply = "🖼️ 圖片已收到！AI 正在分析中，但目前無法取得結果，請稍後再試。"

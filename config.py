@@ -50,3 +50,14 @@ CHAT_HISTORY_DIR = os.getenv("CHAT_HISTORY_DIR", "chat_history").strip() or "cha
 # ---------------- 速率限制 ----------------
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "12"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+
+# ---------------- Web / Google Apps Script (GAS) API 安全金鑰 ----------------
+# 若設定此金鑰，外部 API 請求需附帶 X-API-Key 或 api_key 欄位；若留空則為公開存取模式
+WEB_API_KEY = os.getenv("WEB_API_KEY", "").strip()
+
+
+def is_api_key_valid(provided_key: str) -> bool:
+    """驗證 API 金鑰是否合法。若伺服器未設定金鑰則預設允許。"""
+    if not WEB_API_KEY:
+        return True
+    return bool(provided_key and provided_key.strip() == WEB_API_KEY)

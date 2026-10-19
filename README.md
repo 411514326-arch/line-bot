@@ -6,18 +6,19 @@ Connect your **LINE** app directly to AI on your local machine to chat and execu
 
 ---
 
-## ✨ Features
-
+- 🌐 **獨立網頁聊天介面**：開啟瀏覽器即可對話，不需打開 LINE，支援電腦與手機 RWD
+- 📊 **Google Apps Script (GAS) 整合**：可在 Google Sheets 試算表中當自訂函數 `=ASK_BOT("...")`
+- ☁️ **Google Cloud Run 原生支援**：內建生產級 Gunicorn 與 Dockerfile，一鍵無伺服器部署
 - 🧠 **雙 AI 後端隨時切換**：
   - `gemini` — Google Gemini（預設，保留原有工具呼叫能力）
   - `openai` — **開源模型**：Ollama（本地免費）、LM Studio、vLLM、llama.cpp、OpenRouter、Groq 等
 - 💬 **智慧對話**：多輪上下文記憶，對話紀錄持久化到磁碟（伺服器重啟不消失）
 - 📚 **本地知識庫**：內建常見問題答案（例如國立東華大學陳文盛教授資料），離線也能答
 - 🔍 **網頁搜尋**：`/search` 指令使用多引擎容錯（DuckDuckGo → Bing → SearXNG），免 API 金鑰
-- 💻 **遠端指令執行**：`/cmd <command>` 即時執行並回傳輸出
+- 💻 **遠端指令執行**：`/cmd <command>` 即時執行並回傳輸出（本機模式專用，雲端自動保護）
 - 🤖 **自主工具呼叫**：自然語言即可建立桌面檔案、讀寫檔案、執行指令（Function Calling）
 - ⚡ **非同步 Webhook**：立即回應 HTTP 200，避免 LINE 逾時
-- 🛡️ **安全機制**：白名單控管、危險指令封鎖（rm -rf 等）、訊息速率限制
+- 🛡️ **安全機制**：白名單控管、危險指令封鎖、CORS 支援、API Key 防護、訊息速率限制
 - 🛠️ **實用指令**：`/status`、`/dir`、`/id`、`/model`、`/kb`、`/search`、`/history`、`/clear`、`/help`
 - 🖼️ **圖片分析**：傳送圖片給機器人，自動用 Gemini Vision 以繁體中文描述內容
 
@@ -154,16 +155,26 @@ ngrok http 5000
 
 ```
 line bot/
-├── app.py               # Flask Webhook 伺服器、速率限制、事件處理
+├── app.py               # Flask Webhook 伺服器、網頁 REST API、CORS 與速率限制
 ├── agent.py             # AI Agent：系統提示詞、工具定義、對話入口
 ├── llm.py               # 統一 LLM 後端（Gemini + OpenAI 相容開源模型）
 ├── command_handler.py   # 指令解析與系統工具
 ├── knowledge_base.py    # 本地知識庫（離線可查）
 ├── websearch.py         # DuckDuckGo 網頁搜尋
 ├── config.py            # 環境變數與設定
+├── core/                # 跨平台共用核心業務層
+│   ├── schemas.py       # 跨平台統一訊息結構 (BotRequest, BotResponse)
+│   ├── bot_service.py   # 核心派發業務 (指令 / 知識庫 / AI / 圖片分析)
+│   └── storage.py       # 抽象持久化儲存層 (檔案儲存 / 預留 Firestore)
+├── templates/           # 網頁聊天介面
+│   └── chat.html        # 響應式繁體中文聊天單頁應用
+├── gas_integration.js   # Google Apps Script (GAS) / Sheets 整合代碼
+├── Dockerfile           # Google Cloud Run 生產環境容器建置檔
+├── .dockerignore        # 容器排除機密設定
+├── DEPLOYMENT_GUIDE.md  # Google Cloud Run 完整部署手冊
 ├── chat_history/        # 對話紀錄持久化（自動建立）
-├── index.html           # 專案執行紀錄網頁
-└── requirements.txt
+├── requirements.txt     # 相依套件清單 (含 Gunicorn)
+└── test_*.py            # 單元與整合測試套件
 ```
 
 ---
